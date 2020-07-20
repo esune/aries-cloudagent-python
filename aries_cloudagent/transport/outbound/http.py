@@ -3,7 +3,7 @@
 import logging
 from typing import Union
 
-from aiohttp import ClientSession, DummyCookieJar, TCPConnector
+from aiohttp import ClientSession, DummyCookieJar, TCPConnector, ClientResponse
 
 from ...config.injection_context import InjectionContext
 
@@ -67,7 +67,6 @@ class HttpTransport(BaseOutboundTransport):
             endpoint, data=payload, headers=headers
         ) as response:
             if response.status < 200 or response.status > 299:
-                self.logger.debug(f"Error when posting message: {str(response)}")
                 raise OutboundTransportError(
-                    f"Unexpected response status {response.status}"
+                    f"Unexpected response status {response.status}, caused by: {response.reason}"
                 )
