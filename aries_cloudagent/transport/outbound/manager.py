@@ -440,8 +440,8 @@ class OutboundTransportManager:
 
             if queued.retries:
                 LOGGER.error(
-                    ">>> Posting error: %s; Error: %s; Re-queue failed message ...",
-                    queued.endpoint, queued.error
+                    ">>> Posting error: %s; Error: %s; Payload: %s Re-queue failed message ...",
+                    queued.endpoint, str(queued.error), str(queued.payload)
                 )
                 queued.retries -= 1
                 queued.state = QueuedOutboundMessage.STATE_RETRY
