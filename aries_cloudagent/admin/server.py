@@ -42,7 +42,7 @@ async def forensic_middleware(request: web.BaseRequest, handler: Coroutine):
     print(f'Headers: {request.headers}')
     print(f'Match-info: {json.dumps(request.match_info, indent=4)}')
     print(f'Query: {json.dumps([q for q in request.query])}')
-    body = await request.json()
+    body = await request.text()
     try:
         print(f'Body: {json.dumps(body, indent=4)}')
     except json.decoder.JSONDecodeError:
