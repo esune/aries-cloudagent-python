@@ -1,6 +1,7 @@
 """Admin server classes."""
 
 import asyncio
+import json
 import logging
 from typing import Callable, Coroutine, Sequence, Set
 import uuid
@@ -30,6 +31,23 @@ from .error import AdminSetupError
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+@web.middleware
+async def forensic_middleware(request: web.BaseRequest, handler: Coroutine):
+    """Show input."""
+
+    print(f'\n==== REQUEST {request.url}')
+    print(f'Method: {request.method}')
+    print(f'Match-info: {json.dumps(request.match_info, indent=4)}')
+    print(f'Query: {json.dumps([q for q in request.query])}')
+    try:
+        body = await request.json()
+        print(f'Body: {json.dumps(body, indent=4)}')
+    except json.decoder.JSONDecodeError:
+        print(f'Body: no body')
+
+    return await handler(request)
 
 
 class AdminModulesSchema(Schema):
@@ -159,7 +177,7 @@ class AdminServer(BaseAdminServer):
     async def make_application(self) -> web.Application:
         """Get the aiohttp application instance."""
 
-        middlewares = [validation_middleware]
+        middlewares = [forensic_middleware, validation_middleware]
 
         # admin-token and admin-token are mutually exclusive and required.
         # This should be enforced during parameter parsing but to be sure,
@@ -271,7 +289,15 @@ class AdminServer(BaseAdminServer):
         if plugin_registry:
             plugin_registry.post_process_routes(self.app)
 
-        self.app._state["swagger_dict"].get("tags", []).sort(key=lambda t: t["name"])
+        # order tags alphabetically, parameters deterministically and pythonically
+        swagger_dict = self.app._state["swagger_dict"]
+        swagger_dict.get("tags", []).sort(key=lambda t: t["name"])
+        for path in swagger_dict["paths"].values():
+            for method_spec in path.values():
+                method_spec["parameters"].sort(
+                    key=lambda p: (p["in"], not p["required"], p["name"])
+                )
+
         self.site = web.TCPSite(runner, host=self.host, port=self.port)
 
         try:
@@ -332,6 +358,7 @@ class AdminServer(BaseAdminServer):
 
         """
         status = {"version": __version__}
+        status["label"] = self.context.settings.get("default_label")
         collector: Collector = await self.context.inject(Collector, required=False)
         if collector:
             status["timing"] = collector.results
